@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PETTAS - Penetas Telur Otomatis</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F97316">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+
+  <style>
+    body { font-family: 'Poppins', sans-serif; background-color: #F8FAFC; overflow-x: hidden; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 24px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .nav-btn.active { background-color: rgba(249, 115, 22, 0.1); color: #F97316; font-weight: 600; }
+    .hidden-section { display: none; }
+    
+    @media (max-width: 768px) {
+        main { max-width: 420px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body class="flex justify-center md:justify-start min-h-screen text-slate-800">
+
+  <aside class="hidden md:flex flex-col w-64 bg-white/90 backdrop-blur-xl border-r border-slate-100 p-6 sticky top-0 h-screen z-30">
+    <div class="flex items-center space-x-3 mb-12">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="egg" class="w-6 h-6 text-white"></i>
+      </div>
+      <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-yellow-600">PETTAS</span>
+    </div>
+
+    <nav class="flex flex-col space-y-2 flex-1">
+      <button onclick="switchPage('dashboard')" id="nav-dashboard" class="nav-btn active flex items-center space-x-3 w-full p-3 rounded-2xl transition-all">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>Beranda</span>
+      </button>
+      <button onclick="switchPage('monitoring')" id="nav-monitoring" class="nav-btn flex items-center space-x-3 w-full p-3 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all">
+        <i data-lucide="history" class="w-5 h-5"></i><span>Riwayat</span>
+      </button>
+      <button onclick="switchPage('support')" id="nav-support" class="nav-btn flex items-center space-x-3 w-full p-3 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all">
+        <i data-lucide="message-circle" class="w-5 h-5"></i><span>Pengaduan</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="w-full md:flex-1 h-screen overflow-y-auto pb-24 md:pb-8 relative">
+    <header class="sticky top-0 z-20 bg-[#F8FAFC]/90 backdrop-blur-xl pt-10 pb-6 px-6 md:pt-8 md:px-10 border-b border-slate-100 md:border-none">
+      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Monitoring PETTAS</h1>
+      <div class="flex items-center space-x-2 mt-1">
+        <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+        <p class="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Sistem Penetas Otomatis</p>
+      </div>
+    </header>
+
+    <section id="page-dashboard" class="px-6 md:px-10 pt-6 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass-card p-6 border-l-4 border-orange-500">
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Suhu Ruang</p>
+          <h3 class="text-4xl font-bold text-slate-800"><span id="suhu-val">--</span><small class="text-lg">°C</small></h3>
+          <p id="suhu-stat" class="text-[10px] mt-2 font-bold text-slate-400 uppercase">MENGAMBIL DATA...</p>
+        </div>
+        <div class="glass-card p-6 border-l-4 border-blue-500">
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Kelembaban</p>
+          <h3 class="text-4xl font-bold text-slate-800"><span id="humid-val">--</span><small class="text-lg">%</small></h3>
+          <p id="humid-stat" class="text-[10px] mt-2 font-bold text-slate-400 uppercase">MENGAMBIL DATA...</p>
+        </div>
+      </div>
+
+      <div class="glass-card p-6 min-h-[350px]">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xs font-bold text-slate-400 uppercase">Grafik Sensor</h3>
+          <div class="text-[10px] font-mono text-slate-400" id="live-clock">--:--:--</div>
+        </div>
+        <div class="h-64 w-full">
+          <canvas id="pettasChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-monitoring" class="hidden-section px-6 md:px-10 pt-6">
+      <div class="glass-card p-6 overflow-hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-sm font-bold text-slate-800 uppercase">Log Terakhir</h3>
+            <button onclick="downloadExcel()" class="bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold">DOWNLOAD EXCEL</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-100"><th class="pb-4">WAKTU</th><th class="pb-4">SUHU</th><th class="pb-4">KELEMBABAN</th></tr></thead>
+              <tbody id="log-table" class="text-slate-600"></tbody>
+            </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-support" class="hidden-section px-6 md:px-10 pt-6">
+        <div class="glass-card p-8 space-y-6 border-l-4 border-orange-500">
+          <h3 class="text-xl font-bold">Layanan Pengaduan</h3>
+          <div class="space-y-4">
+              <input id="report-name" type="text" placeholder="Nama Pelapor..." class="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm outline-none">
+              <select id="report-cat" class="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm outline-none font-medium">
+                  <option value="Suhu Terlalu Panas/Dingin">Suhu Terlalu Panas/Dingin</option>
+                  <option value="Motor Rak Tidak Berputar">Motor Rak Tidak Berputar</option>
+                  <option value="Sensor DHT Mati">Sensor DHT Mati</option>
+                  <option value="Alat Offline (WiFi)">Alat Offline (WiFi)</option>
+              </select>
+              <textarea id="report-msg" rows="4" placeholder="Detail masalah..." class="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm outline-none"></textarea>
+              <button onclick="sendReport()" class="w-full bg-green-600 text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2">
+                  <i data-lucide="send" class="w-4 h-4"></i> KIRIM KE WHATSAPP
+              </button>
+          </div>
+        </div>
+    </section>
+
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-10 py-4 z-50 flex justify-between items-center max-w-[420px] mx-auto shadow-2xl text-slate-400">
+        <button onclick="switchPage('dashboard')" id="mob-dash" class="text-orange-600"><i data-lucide="layout-dashboard"></i></button>
+        <button onclick="switchPage('monitoring')" id="mob-mon"><i data-lucide="history"></i></button>
+        <button onclick="switchPage('support')" id="mob-sup"><i data-lucide="message-circle"></i></button>
+    </nav>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBX9D2SPFlHzF6xMNeEDyT3v35KDefT9U0",
+      authDomain: "pettas.firebaseapp.com",
+      databaseURL: "https://pettas-default-rtdb.firebaseio.com",
+      projectId: "pettas",
+      storageBucket: "pettas.firebasestorage.app",
+      messagingSenderId: "1077792956771",
+      appId: "1:1077792956771:web:aa5047d61871c573563356"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    lucide.createIcons();
+
+    // Sesuai Foto: Child SUHU dan KELEMBABAN di root (/)
+    db.ref("/").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if(data) {
+            const s = data.SUHU;
+            const h = data.KELEMBABAN;
+            document.getElementById('suhu-val').innerText = s || "--";
+            document.getElementById('humid-val').innerText = h || "--";
+            
+            const sStat = document.getElementById('suhu-stat');
+            const hStat = document.getElementById('humid-stat');
+
+            // Logika Status dari Arduino
+            sStat.innerText = s <= 37 ? "● LAMPU MENYALA" : s >= 39 ? "● LAMPU MATI" : "● SUHU NORMAL";
+            sStat.className = `text-[10px] mt-2 font-bold ${s <= 37 ? 'text-orange-500' : 'text-slate-400'}`;
+            
+            hStat.innerText = "● MONITORING AKTIF";
+            hStat.className = "text-[10px] mt-2 font-bold text-blue-500";
+
+            updateChartAndTable(s, h);
+        }
+    });
+
+    const ctx = document.getElementById('pettasChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Suhu', borderColor: '#F97316', data: [], tension: 0.4 },
+          { label: 'Lembab', borderColor: '#3B82F6', data: [], tension: 0.4 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } } }
+    });
+
+    function updateChartAndTable(s, h) {
+        const now = new Date().toLocaleTimeString('id-ID', { hour12: false });
+        document.getElementById('live-clock').innerText = now;
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(s);
+        chart.data.datasets[1].data.push(h);
+        if(chart.data.labels.length > 10) { 
+            chart.data.labels.shift(); 
+            chart.data.datasets.forEach(d => d.data.shift());
+        }
+        chart.update('none');
+
+        const row = `<tr class="border-b border-slate-50"><td class="py-4 font-mono">${now}</td><td class="font-bold text-orange-600">${s}°C</td><td class="font-bold text-blue-600">${h}%</td></tr>`;
+        document.getElementById('log-table').innerHTML = row + document.getElementById('log-table').innerHTML;
+    }
+
+    function switchPage(page) {
+        document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden-section'));
+        document.getElementById('page-' + page).classList.remove('hidden-section');
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        if(document.getElementById('nav-' + page)) document.getElementById('nav-' + page).classList.add('active');
+        // Mobile style
+        ['mob-dash', 'mob-mon', 'mob-sup'].forEach(id => document.getElementById(id).classList.remove('text-orange-600'));
+        const activeMob = (page === 'dashboard') ? 'mob-dash' : (page === 'monitoring') ? 'mob-mon' : 'mob-sup';
+        document.getElementById(activeMob).classList.add('text-orange-600');
+    }
+
+    function sendReport() {
+        const name = document.getElementById('report-name').value;
+        const cat = document.getElementById('report-cat').value;
+        const msg = document.getElementById('report-msg').value;
+        if(!name || !msg) return alert("Isi semua data!");
+        window.open(`https://wa.me/628136871723?text=*LAPORAN PETTAS*%0A*Nama:* ${name}%0A*Kategori:* ${cat}%0A*Pesan:* ${msg}`, '_blank');
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
+    }
+  </script>
+</body>
+</html>
