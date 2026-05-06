@@ -218,6 +218,35 @@
         window.open(`https://wa.me/628136871723?text=*LAPORAN PETTAS*%0A*Nama:* ${name}%0A*Kategori:* ${cat}%0A*Pesan:* ${msg}`, '_blank');
     }
 
+    // --- FUNGSI DOWNLOAD EXCEL ---
+    function downloadExcel() {
+        const table = document.getElementById("log-table");
+        if (table.rows.length === 0) {
+            alert("Belum ada data untuk diunduh!");
+            return;
+        }
+
+        let data = [];
+        // Header
+        data.push(["Waktu", "Suhu (°C)", "Kelembaban (%)"]);
+
+        // Ambil data dari tabel
+        for (let i = 0; i < table.rows.length; i++) {
+            let row = table.rows[i];
+            data.push([
+                row.cells[0].innerText,
+                row.cells[1].innerText,
+                row.cells[2].innerText
+            ]);
+        }
+
+        // Generate file Excel
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat Data");
+        XLSX.writeFile(workbook, "Riwayat_Data_Pettas.xlsx");
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
     }
